@@ -46,10 +46,26 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)" :data-testid="`row-${row.id}`" :data-status="String(row.status)">
-          <td v-for="column in meta.fields" :key="column">{{ row[column] ?? '—' }}</td>
+        <tr
+          v-for="row in rows"
+          :key="String(row.id)"
+          :data-testid="`row-${row.id}`"
+          :data-status="String(row.status)"
+          :class="{ 'clickable-row': meta.key === 'classify_tag' }"
+          @click="onRowClick(row)"
+        >
+          <td v-for="column in meta.fields" :key="column">
+            <RouterLink
+              v-if="meta.key === 'classify_tag' && column === '标签编号'"
+              :to="`/classify_tag/${row.id}`"
+              :data-testid="`tag-link-${row.id}`"
+            >
+              {{ row[column] ?? '—' }}
+            </RouterLink>
+            <template v-else>{{ row[column] ?? '—' }}</template>
+          </td>
           <td>{{ row.status }}</td>
-          <td class="row-actions">
+          <td class="row-actions" @click.stop>
             <button
               v-for="action in meta.actions"
               :key="action"
@@ -60,6 +76,25 @@
             >
               {{ action }}
             </button>
+            <button
+              v-if="meta.key === 'k_anonymity'"
+              class="link disposition-entry"
+              type="button"
+              :data-testid="`action-${row.id}-分组处置`"
+              :aria-label="`分组处置 ${row['检查编号'] ?? row.id}`"
+              @click="openDisposition(Number(row.id))"
+            >
+              分组处置
+            </button>
+            <RouterLink
+              v-if="meta.key === 'classify_tag'"
+              class="link detail-entry"
+              :data-testid="`detail-${row.id}`"
+              :aria-label="`分级分类详情 ${row['标签编号'] ?? row.id}`"
+              :to="`/classify_tag/${row.id}`"
+            >
+              详情
+            </RouterLink>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -95,6 +130,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import {
   createEntry,
@@ -104,9 +140,18 @@ import {
   runAction as applyAction,
 } from '@/api/backend-service'
 import type { EntryRow } from '@/data/types'
+import { openDisposition } from './disposition-ui'
 
 const props = defineProps<{ moduleKey: string }>()
 const meta = moduleMeta(props.moduleKey)
+const router = useRouter()
+
+function onRowClick(row: EntryRow): void {
+  // 分级分类整行可进入详情页；其他模块保持原有交互。
+  if (props.moduleKey === 'classify_tag') {
+    void router.push(`/classify_tag/${row.id}`)
+  }
+}
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
@@ -189,3 +234,12 @@ async function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.clickable-row {
+  cursor: pointer;
+}
+.clickable-row:hover {
+  background: #f8fafc;
+}
+</style>
